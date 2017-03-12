@@ -1,82 +1,129 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
+using Nito.AsyncEx;
+using Slackbot.Model;
+using Slackbot.MessageHandling;
+using Slackbot.Utils;
 
 namespace Slackbot
 {
-    public class OnMessageArgs
-    {
-        public string Text;
-        public string Channel;
-        public string[] MentionedUsers = new string[0];
-    }
-
-    class SlackData
-    {
-        public string Type;
-    }
-
     public class Bot
     {
         public readonly string Token;
         public readonly string Username;
 
-        SocketConnection SocketConnection;
+        private SocketConnection _socketConnection;
+        private readonly MessageHandlerFactory _factory;
+        private readonly ILogger<Bot> _logger;
+        private readonly IServiceProvider _serviceProvider;
+        
+        private readonly Slack _slack;
 
-        public event EventHandler<OnMessageArgs> OnMessage;
+        public event EventHandler<Message> OnMessage;
 
-        public Bot(string token, string username)
+        public static Bot Factory(string token, string username, IServiceProvider serviceProvider)
         {
-            this.Token = token;
-            this.Username = username;
-
-            Connect();
+            return new Bot(token, username, serviceProvider);
         }
 
-        public void SendMessage(string channel, string message)
+        private Bot(string token, string username, IServiceProvider serviceProvider)
         {
-            var outbound = new
-            {
-                id = Guid.NewGuid().ToString(),
-                type = "message",
-                channel = channel,
-                text = message
-            };
+            Token = token;
+            Username = username;
+            _serviceProvider = serviceProvider;
 
-            var outboundBytes = Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(outbound));
+            _slack = new Slack(Token, serviceProvider.GetService<ILogger<Slack>>());
+            _logger = _serviceProvider.GetService<ILoggerFactory>().CreateLogger<Bot>();
+            _factory = new MessageHandlerFactory(_serviceProvider);
+        }
+
+        public Bot Run()
+        {
+            AsyncContext.Run(async () => await Connect());
+            return this;
+        }
+
+        public async Task SendMessageAsync(Message message)
+        {
+            var json = this.CreateMessage(message);
+            var outboundBytes = Encoding.UTF8.GetBytes(json);
             var outboundBuffer = new ArraySegment<byte>(outboundBytes);
 
-            SocketConnection.SendData(outboundBuffer);
+            _logger?.LogDebug($"Sending Message: {json}");
+
+            await _socketConnection.SendDataAsync(outboundBuffer);
         }
 
-        async void Connect()
+        public async Task SendAdvancedMessageAsync(AdvancedMessage message)
         {
-            var url = await Slack.GetWebsocketUrl(this.Token);
-            SocketConnection = new SocketConnection(url);
+            await _slack.SendMessage(message);
+        }
 
-            SocketConnection.OnData += (sender, data) =>
+        private string CreateMessage<T>(T message)
+        {
+            var jsonSettings = new JsonSerializerSettings()
             {
-                HandleOnData(data);
+                DefaultValueHandling = DefaultValueHandling.Ignore,
+                NullValueHandling = NullValueHandling.Ignore,
+                ContractResolver  = new LowercaseContractResolver()
+            };
+            
+            return JsonConvert.SerializeObject(message, Formatting.None, jsonSettings);
+        }
+
+        private async Task Connect()
+        {
+            var url = await _slack.GetWebsocketUrl();
+            _socketConnection = new SocketConnection(url);
+
+            _socketConnection.OnData += async (sender, data) =>
+            {
+                try
+                {
+                    await HandleOnData(data);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e.Message);
+                }
             };
         }
 
-        async void HandleOnData(string data)
+        private async Task HandleOnData(string data)
         {
-            var message = Newtonsoft.Json.JsonConvert.DeserializeObject<SlackData>(data);
+            var jobj = JObject.Parse(data);
+            var message = jobj.ToObject<SlackData>();
+
+            _logger?.LogTrace($"Handling message of type {message.Type}");
 
             if (message.Type == "message")
             {
-                var args = Newtonsoft.Json.JsonConvert.DeserializeObject<OnMessageArgs>(data);
+                var incomingMessage = await jobj.ToObject<IncomingMessage>()
+                                                .FindMentionedUsers(_slack, data);
+                
+                OnMessage?.Invoke(this, incomingMessage);
 
-                args.MentionedUsers = SlackMessage.FindMentionedUsers(data);
-
-                for (var i = 0; i < args.MentionedUsers.Count(); i++)
+                if (_factory != null)
                 {
-                    args.MentionedUsers[i] = await Slack.GetUsername(this.Token, args.MentionedUsers[i]);
+                    var handlers = _factory.CreateMessageHandlers();
+                    foreach (IMessageHandler handler in handlers)
+                    {
+                        if (await handler.ShouldHandleAsync(incomingMessage))
+                            await handler.HandleMessageAsync(this, incomingMessage);
+                    }
                 }
-
-                OnMessage.Invoke(this, args);
             }
+
+            if (message.Type == "error" || (string.IsNullOrEmpty(message.Type) && !jobj.SelectToken("$.ok").Value<bool>()))
+                _logger?.LogError($"Err: {data}");
         }
     }
 }
