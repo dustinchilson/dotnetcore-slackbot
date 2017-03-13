@@ -24,7 +24,7 @@ namespace Slackbot
             await _socket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
         }
 
-        private async void Connect()
+        private async Task Connect()
         {
             try
             {
@@ -49,13 +49,13 @@ namespace Slackbot
                             receiveBuffer.Skip(receiveBuffer.Offset).Take(receivedMessage.Count).ToArray();
 
                         var rawMessage = new UTF8Encoding().GetString(messageBytes);
-                        OnData.Invoke(this, rawMessage);
+                        OnData?.Invoke(this, rawMessage);
                     }
                 }
             }
             catch (Exception)
             {
-                this.Connect();
+                await this.Connect();
             }
         }
     }
