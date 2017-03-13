@@ -10,39 +10,26 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using Nito.AsyncEx;
 using Slackbot.Model;
-using Slackbot.MessageHandling;
 using Slackbot.Utils;
 
 namespace Slackbot
 {
     public class Bot
     {
-        public readonly string Token;
-        public readonly string Username;
-
+        private readonly string _token;
+        private readonly string _username;
         private SocketConnection _socketConnection;
-        private readonly MessageHandlerFactory _factory;
         private readonly ILogger<Bot> _logger;
-        private readonly IServiceProvider _serviceProvider;
-        
         private readonly Slack _slack;
 
-        public event EventHandler<Message> OnMessage;
+        public event EventHandler<IncomingMessage> OnMessage;
 
-        public static Bot Factory(string token, string username, IServiceProvider serviceProvider)
+        public Bot(string token, string username, ILogger<Bot> logger, Slack slack)
         {
-            return new Bot(token, username, serviceProvider);
-        }
-
-        private Bot(string token, string username, IServiceProvider serviceProvider)
-        {
-            Token = token;
-            Username = username;
-            _serviceProvider = serviceProvider;
-
-            _slack = new Slack(Token, serviceProvider.GetService<ILogger<Slack>>());
-            _logger = _serviceProvider.GetService<ILoggerFactory>().CreateLogger<Bot>();
-            _factory = new MessageHandlerFactory(_serviceProvider);
+            _token = token;
+            _username = username;
+            _logger = logger;
+            _slack = slack;
         }
 
         public Bot Run()
@@ -106,20 +93,9 @@ namespace Slackbot
 
             if (message.Type == "message")
             {
-                var incomingMessage = await jobj.ToObject<IncomingMessage>()
-                                                .FindMentionedUsers(_slack, data);
+                var incomingMessage = await jobj.ToObject<IncomingMessage>().FindMentionedUsers(_slack, data);
                 
                 OnMessage?.Invoke(this, incomingMessage);
-
-                if (_factory != null)
-                {
-                    var handlers = _factory.CreateMessageHandlers();
-                    foreach (IMessageHandler handler in handlers)
-                    {
-                        if (await handler.ShouldHandleAsync(incomingMessage))
-                            await handler.HandleMessageAsync(this, incomingMessage);
-                    }
-                }
             }
 
             if (message.Type == "error" || (string.IsNullOrEmpty(message.Type) && !jobj.SelectToken("$.ok").Value<bool>()))
