@@ -4,17 +4,20 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Slackbot
 {
     internal class SocketConnection
     {
+        private readonly ILogger<SocketConnection> _logger;
         public string Url { get; }
         public event EventHandler<string> OnData;
         private ClientWebSocket _socket;
 
-        public SocketConnection(string url)
+        public SocketConnection(string url, ILogger<SocketConnection> logger)
         {
+            _logger = logger;
             this.Url = url;
             this.Connect();
         }
@@ -24,7 +27,7 @@ namespace Slackbot
             await _socket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
         }
 
-        private async Task Connect()
+        private async void Connect()
         {
             try
             {
@@ -53,9 +56,10 @@ namespace Slackbot
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                await this.Connect();
+                _logger.LogError(ex.Message);
+                this.Connect();
             }
         }
     }

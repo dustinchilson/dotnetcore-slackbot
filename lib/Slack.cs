@@ -11,7 +11,7 @@ using Slackbot.Utils;
 
 namespace Slackbot
 {
-    public class Slack
+    internal class Slack
     {
         private readonly string _token;
         private readonly ILogger<Slack> _logger;

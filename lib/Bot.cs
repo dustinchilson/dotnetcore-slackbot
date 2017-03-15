@@ -16,20 +16,18 @@ namespace Slackbot
 {
     public class Bot
     {
-        private readonly string _token;
-        private readonly string _username;
+        private readonly ILoggerFactory _loggerFactory;
         private SocketConnection _socketConnection;
         private readonly ILogger<Bot> _logger;
         private readonly Slack _slack;
 
         public event EventHandler<IncomingMessage> OnMessage;
 
-        public Bot(string token, string username, ILogger<Bot> logger, Slack slack)
+        public Bot(string token, ILoggerFactory loggerFactory)
         {
-            _token = token;
-            _username = username;
-            _logger = logger;
-            _slack = slack;
+            _loggerFactory = loggerFactory;
+            _logger = loggerFactory.CreateLogger<Bot>();
+            _slack = new Slack(token, loggerFactory.CreateLogger<Slack>());
         }
 
         public Bot Run()
@@ -69,7 +67,7 @@ namespace Slackbot
         private async Task Connect()
         {
             var url = await _slack.GetWebsocketUrl();
-            _socketConnection = new SocketConnection(url);
+            _socketConnection = new SocketConnection(url, _loggerFactory.CreateLogger<SocketConnection>());
 
             _socketConnection.OnData += async (sender, data) =>
             {
@@ -89,12 +87,12 @@ namespace Slackbot
             var jobj = JObject.Parse(data);
             var message = jobj.ToObject<SlackData>();
 
-            _logger?.LogTrace($"Handling message of type {message.Type}");
+            _logger?.LogDebug($"Handling message of type {message.Type}");
 
-            if (message.Type == "message")
+            if (message.Type == "message" && message.Subtype != "channel_join")
             {
                 var incomingMessage = await jobj.ToObject<IncomingMessage>().FindMentionedUsers(_slack, data);
-                
+                incomingMessage.RawJson = data;
                 OnMessage?.Invoke(this, incomingMessage);
             }
 

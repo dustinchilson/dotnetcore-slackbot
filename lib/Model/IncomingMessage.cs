@@ -12,6 +12,7 @@ namespace Slackbot.Model
         }
 
         public IEnumerable<string> MentionedUsers { get; set; } = new string[0];
+        public string RawJson { get; set; }
 
         internal async Task<IncomingMessage> FindMentionedUsers(Slack slack, string message)
         {
