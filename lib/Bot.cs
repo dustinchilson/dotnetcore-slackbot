@@ -36,9 +36,14 @@ namespace Slackbot
             return this;
         }
 
+        public void SendMessage(string channel, string message)
+        {
+            AsyncContext.Run(async () => await this.SendMessageAsync(new Message(channel, message)));
+        }
+
         public async Task SendMessageAsync(Message message)
         {
-            var json = this.CreateMessage(message);
+            var json = this.SerilizeMessage(message);
             var outboundBytes = Encoding.UTF8.GetBytes(json);
             var outboundBuffer = new ArraySegment<byte>(outboundBytes);
 
@@ -52,7 +57,7 @@ namespace Slackbot
             await _slack.SendMessage(message);
         }
 
-        private string CreateMessage<T>(T message)
+        private string SerilizeMessage<T>(T message)
         {
             var jsonSettings = new JsonSerializerSettings()
             {
