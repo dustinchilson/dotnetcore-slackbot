@@ -96,8 +96,10 @@ namespace Slackbot
 
             if (message.Type == "message" && message.Subtype != "channel_join")
             {
-                var incomingMessage = await jobj.ToObject<IncomingMessage>().FindMentionedUsers(_slack, data);
+                var incomingMessage = jobj.ToObject<IncomingMessage>();
                 incomingMessage.RawJson = data;
+                await incomingMessage.FindMentionedUsers(_slack);
+                await incomingMessage.FindSendingUser(_slack);
                 OnMessage?.Invoke(this, incomingMessage);
             }
 
