@@ -15,7 +15,7 @@ namespace Slackbot
         public event EventHandler<string> OnData;
         private ClientWebSocket _socket;
 
-        public SocketConnection(string url, ILogger<SocketConnection> logger)
+        public SocketConnection(string url, ILogger<SocketConnection> logger = null)
         {
             _logger = logger;
             this.Url = url;
@@ -58,7 +58,7 @@ namespace Slackbot
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.Message);
+                _logger?.LogError(ex.Message);
                 this.Connect();
             }
         }

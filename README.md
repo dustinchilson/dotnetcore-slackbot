@@ -9,7 +9,7 @@ A simple slackbot library built to listen for and respond to messages.
 ## Usage
 
 ```
-var bot = new Bot("bot-token", "bot-username");
+var bot = new Bot("bot-token");
 
 bot.OnMessage += (sender, message) =>
 {
@@ -18,6 +18,8 @@ bot.OnMessage += (sender, message) =>
         bot.SendMessage(message.Channel, "hi there, thanks for mentioning my name!");
     }
 };
+
+bot.Run();
 ```
 
 ## Nuget

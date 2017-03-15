@@ -16,7 +16,7 @@ namespace Slackbot
         private readonly string _token;
         private readonly ILogger<Slack> _logger;
 
-        public Slack(string token, ILogger<Slack> logger)
+        public Slack(string token, ILogger<Slack> logger = null)
         {
             _token = token;
             _logger = logger;
@@ -71,7 +71,7 @@ namespace Slackbot
             if (response.IsSuccessStatusCode && jobj.SelectToken("$.ok").Value<bool>())
                 return jobj.ToObject<TResult>();
 
-            _logger.LogError(responseContent);
+            _logger?.LogError(responseContent);
             throw new HttpRequestException(responseContent);
         }
     }

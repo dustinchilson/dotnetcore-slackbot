@@ -23,11 +23,11 @@ namespace Slackbot
 
         public event EventHandler<IncomingMessage> OnMessage;
 
-        public Bot(string token, ILoggerFactory loggerFactory)
+        public Bot(string token, ILoggerFactory loggerFactory = null)
         {
             _loggerFactory = loggerFactory;
             _logger = loggerFactory.CreateLogger<Bot>();
-            _slack = new Slack(token, loggerFactory.CreateLogger<Slack>());
+            _slack = new Slack(token, loggerFactory?.CreateLogger<Slack>());
         }
 
         public Bot Run()
@@ -72,7 +72,7 @@ namespace Slackbot
         private async Task Connect()
         {
             var url = await _slack.GetWebsocketUrl();
-            _socketConnection = new SocketConnection(url, _loggerFactory.CreateLogger<SocketConnection>());
+            _socketConnection = new SocketConnection(url, _loggerFactory?.CreateLogger<SocketConnection>());
 
             _socketConnection.OnData += async (sender, data) =>
             {
