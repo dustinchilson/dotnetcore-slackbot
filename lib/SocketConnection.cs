@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -43,19 +44,19 @@ namespace Slackbot
             {
                 try
                 {
-                    Socket = new System.Net.WebSockets.ClientWebSocket();
-                    await Socket.ConnectAsync(new Uri(await this.GetWebsocketUrl()), CancellationToken.None);
+                    _socket = new System.Net.WebSockets.ClientWebSocket();
+                    await _socket.ConnectAsync(new Uri(await this.GetWebsocketUrl()), CancellationToken.None);
 
                     var receiveBytes = new byte[4096];
                     var receiveBuffer = new ArraySegment<byte>(receiveBytes);
 
-                    while (Socket.State == WebSocketState.Open)
+                    while (_socket.State == WebSocketState.Open)
                     {
-                        var receivedMessage = await Socket.ReceiveAsync(receiveBuffer, CancellationToken.None);
+                        var receivedMessage = await _socket.ReceiveAsync(receiveBuffer, CancellationToken.None);
                         if (receivedMessage.MessageType == WebSocketMessageType.Close)
                         {
                             await
-                                Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closing websocket",
+                                _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closing websocket",
                                     CancellationToken.None);
                         }
                         else

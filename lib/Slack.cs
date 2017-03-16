@@ -30,9 +30,9 @@ namespace Slackbot
             using (var client = new HttpClient())
             {
                 var responseContent = await client.GetAsync(uri).ContinueWith(s => HandleErrors<HelloRTMSession>(s.Result)).Result;
-               return responseContent.Ok 
-                    ? responseContent.url 
-                    : throw new Exception($"FATAL: connecting to Slack RTM failed ({helloRTMSession.Error})");
+                return responseContent.Ok 
+                    ? responseContent.Url 
+                    : throw new Exception($"FATAL: connecting to Slack RTM failed ({responseContent.Error})");
             }
         }
 
@@ -44,7 +44,7 @@ namespace Slackbot
             {
 
                 var responseContent = await client.GetAsync(uri).ContinueWith(s => HandleErrors<SlackUserList>(s.Result)).Result;
-                return responseContent..Members.First(member => member.Id == userId.Split('|')[0])?.Name ?? "";
+                return responseContent.Members.First(member => member.Id == userId.Split('|')[0])?.Name ?? "";
             }
         }
 

@@ -32,7 +32,7 @@ namespace Slackbot
 
         public Bot Run()
         {
-            AsyncContext.Run(async () => await Connect());
+            AsyncContext.Run(async () => Connect());
             return this;
         }
 
@@ -69,10 +69,9 @@ namespace Slackbot
             return JsonConvert.SerializeObject(message, Formatting.None, jsonSettings);
         }
 
-        private async Task Connect()
+        private void Connect()
         {
-            var url = await _slack.GetWebsocketUrl();
-            _socketConnection = new SocketConnection(url, _loggerFactory?.CreateLogger<SocketConnection>());
+            _socketConnection = new SocketConnection(async () => await _slack.GetWebsocketUrl(), _loggerFactory?.CreateLogger<SocketConnection>());
 
             _socketConnection.OnData += async (sender, data) =>
             {
