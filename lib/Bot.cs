@@ -80,7 +80,8 @@ namespace Slackbot
                     args.MentionedUsers[i] = await Slack.GetUsername(this.Token, args.MentionedUsers[i]);
                 }
 
-                args.User = await Slack.GetUsername(this.Token, args.User);
+                if (args.User != null)
+                    args.User = await Slack.GetUsername(this.Token, args.User);
 
                 OnMessage.Invoke(this, args);
             }
